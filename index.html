@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Task Manager</title>
+<style>
+:root {
+  --primary: #4a90e2;
+  --bg: #ffffff;
+  --text: #333333;
+  --border: #e0e0e0;
+  --font: 'Segoe UI', sans-serif;
+  --important-task: #e74c3c;
+  --custom-task: #f39c12;
+  --regular-task: #2ecc71;
+}
+[data-theme="dark"] {
+  --bg: #1a1a1a;
+  --text: #ffffff;
+  --border: #404040;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font);
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: all 0.3s ease;
+  min-height: 100vh;
+}
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.task-form {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+input, button, select {
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  transition: all 0.3s ease;
+}
+button {
+  cursor: pointer;
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+button:hover {
+  background: darken(var(--primary), 10%);
+}
+.progress-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  margin: 2rem 0;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.task-list {
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+}
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  animation: fadeIn 0.3s ease;
+}
+.task-item.completed {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+.task-item.important {
+  border-left: 4px solid var(--important-task);
+}
+.task-item.custom {
+  border-left: 4px solid var(--custom-task);
+}
+.task-item.regular {
+  border-left: 4px solid var(--regular-task);
+}
+.settings-panel {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+.calendar div {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+  background: var(--bg);
+  cursor: pointer;
+}
+.calendar .today {
+  background: var(--primary);
+  color: white;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 600px) {
+  .container {
+    padding: 1rem;
+  }
+  .task-form {
+    flex-direction: column;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="settings-panel">
+    <button onclick="toggleTheme()">🌓</button>
+    <input type="color" onchange="updateColor(this.value)">
+  </div>
+  <header class="header">
+    <h1>Daily Task Manager</h1>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: 0%"></div>
+    </div>
+  </header>
+  <form class="task-form" onsubmit="addTask(event)">
+    <input type="text" id="task-input" placeholder="New task..." required>
+    <select id="task-type">
+      <option value="regular">Regular</option>
+      <option value="important">Important</option>
+      <option value="custom">Custom</option>
+    </select>
+    <input type="date" id="task-date" required>
+    <button type="submit">Add Task</button>
+  </form>
+  <ul class="task-list" id="task-list"></ul>
+  <div id="stats" class="stats"></div>
+  <div class="calendar" id="calendar"></div>
+</div>
+<script>
+let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+const today = new Date().toISOString().split('T')[0];
+
+function addTask(e) {
+  e.preventDefault();
+  const input = document.getElementById('task-input');
+  const type = document.getElementById('task-type').value;
+  const date = document.getElementById('task-date').value;
+  tasks.push({ text: input.value, completed: false, type, date });
+  input.value = '';
+  saveTasks();
+  renderTasks();
+}
+
+function renderTasks() {
+  const list = document.getElementById('task-list');
+  list.innerHTML = tasks.map((task, index) => `
+    <li class="task-item ${task.completed ? 'completed' : ''} ${task.type}">
+      <input type="checkbox"
+             ${task.completed ? 'checked' : ''}
+             onchange="toggleTask(${index})">
+      <span>${task.text} (${task.date})</span>
+      <button onclick="deleteTask(${index})">🗑</button>
+    </li>
+  `).join('');
+  updateProgress();
+  updateStats();
+  renderCalendar();
+}
+
+function toggleTask(index) {
+  tasks[index].completed = !tasks[index].completed;
+  saveTasks();
+  renderTasks();
+}
+
+function deleteTask(index) {
+  tasks.splice(index, 1);
+  saveTasks();
+  renderTasks();
+}
+
+function updateProgress() {
+  const completed = tasks.filter(t => t.completed).length;
+  const progress = (completed / tasks.length) * 100 || 0;
+  document.querySelector('.progress-fill').style.width = `${progress}%`;
+}
+
+function updateStats() {
+  const regularTasks = tasks.filter(t => t.type === 'regular').length;
+  const regularCompleted = tasks.filter(t => t.type === 'regular' && t.completed).length;
+  const percentage = (regularCompleted / regularTasks) * 100 || 0;
+  document.getElementById('stats').innerText = `Regular Tasks Completed: ${percentage.toFixed(1)}%`;
+}
+
+function toggleTheme() {
+  document.body.setAttribute('data-theme',
+    document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+  );
+  localStorage.setItem('theme', document.body.getAttribute('data-theme'));
+}
+
+function updateColor(color) {
+  document.documentElement.style.setProperty('--primary', color);
+  localStorage.setItem('primaryColor', color);
+}
+
+function saveTasks() {
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function renderCalendar() {
+  const calendar = document.getElementById('calendar');
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  calendar.innerHTML = '';
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayTasks = tasks.filter(task => task.date === date);
+    const taskCount = dayTasks.length;
+    const taskBadge = taskCount > 0 ? ` (${taskCount})` : '';
+    calendar.innerHTML += `<div class="${date === today ? 'today' : ''}" onclick="showTasks('${date}')">${day}${taskBadge}</div>`;
+  }
+}
+
+function showTasks(date) {
+  const dayTasks = tasks.filter(task => task.date === date);
+  alert(`Tasks for ${date} \n` + dayTasks.map(task => `- ${task.text}`).join('\n'));
+}
+
+// Initialize
+document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+document.documentElement.style.setProperty('--primary',
+  localStorage.getItem('primaryColor') || '#4a90e2');
+renderTasks();
+</script>
+</body>
+</html>
